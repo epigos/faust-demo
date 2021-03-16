@@ -9,7 +9,7 @@ services:
     environment:
       - AWS_ENDPOINT_URL=http://localstack:4566
     volumes:
-      - .:/code
+      - ./workers:/code
     depends_on:
       - localstack
   sqs_consumer:
@@ -20,7 +20,7 @@ services:
       - AWS_ENDPOINT_URL=http://localstack:4566
       - KAFKA_HOST=broker:9092
     volumes:
-      - .:/code
+      - ./workers:/code
     depends_on:
       - localstack
       - broker
@@ -32,7 +32,7 @@ services:
     environment:
       - KAFKA_HOST=kafka://broker:9092
     volumes:
-      - .:/code
+      - ./workers:/code
     depends_on:
       - broker
     ports:
@@ -45,7 +45,7 @@ services:
     environment:
       - KAFKA_HOST=kafka://broker:9092
     volumes:
-      - .:/code
+      - ./workers:/code
     depends_on:
       - broker
     ports:
@@ -58,7 +58,7 @@ services:
     environment:
       - KAFKA_HOST=kafka://broker:9092
     volumes:
-      - .:/code
+      - ./workers:/code
     depends_on:
       - broker
     ports:
@@ -71,7 +71,7 @@ services:
     environment:
       - KAFKA_HOST=kafka://broker:9092
     volumes:
-      - .:/code
+      - ./workers:/code
     depends_on:
       - broker
     ports:
@@ -84,7 +84,7 @@ services:
     environment:
       - KAFKA_HOST=kafka://broker:9092
     volumes:
-      - .:/code
+      - ./workers:/code
     depends_on:
       - broker
     ports:

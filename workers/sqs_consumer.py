@@ -4,7 +4,6 @@ import time
 import uuid
 
 from kafka import KafkaProducer
-
 from utils import get_client, get_queue_url
 
 TOPIC = "image-extraction"

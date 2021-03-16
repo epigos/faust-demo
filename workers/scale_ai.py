@@ -4,11 +4,10 @@ import os
 from datetime import datetime
 
 import faust
-
 import utils
 
 kafka_host = os.environ.get("KAFKA_HOST", "kafka://localhost")
-app = faust.App("scale_ai", broker=kafka_host, datadir="/tmp/{appid}-data")
+app = faust.App("scale_ai", broker=kafka_host, datadir="/tmp/scale_ai-data")
 
 scale_ai_topic = app.topic("scale_ai", value_type=utils.VideoSchema)
 audit_topic = app.topic("audit", value_type=utils.AuditSchema)

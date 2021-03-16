@@ -4,11 +4,10 @@ import os
 from datetime import datetime
 
 import faust
-
 import utils
 
 kafka_host = os.environ.get("KAFKA_HOST", "kafka://localhost")
-app = faust.App("image-extraction", broker=kafka_host, datadir="/tmp/{appid}-data")
+app = faust.App("image-extraction", broker=kafka_host, datadir="/tmp/image-data")
 
 image_extraction_topic = app.topic("image-extraction", value_type=utils.VideoSchema)
 prediction_topic = app.topic("prediction", value_type=utils.VideoSchema)

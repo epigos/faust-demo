@@ -2,11 +2,10 @@ import logging
 import os
 
 import faust
-
 import utils
 
 kafka_host = os.environ.get("KAFKA_HOST", "kafka://localhost")
-app = faust.App("echo", broker=kafka_host, datadir="/tmp/{appid}-data")
+app = faust.App("echo", broker=kafka_host, datadir="/tmp/echo-data")
 
 ml_topic = app.topic("prediction", value_type=utils.VideoSchema)
 autotag_topic = app.topic("autotag", value_type=utils.VideoSchema)

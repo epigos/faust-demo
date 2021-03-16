@@ -4,11 +4,10 @@ import os
 from datetime import datetime
 
 import faust
-
 import utils
 
 kafka_host = os.environ.get("KAFKA_HOST", "kafka://localhost")
-app = faust.App("autotag", broker=kafka_host, datadir="/tmp/{appid}-data")
+app = faust.App("autotag", broker=kafka_host, datadir="/tmp/autotag-data")
 
 autotag_topic = app.topic("autotag", value_type=utils.VideoSchema)
 audit_topic = app.topic("audit", value_type=utils.AuditSchema)

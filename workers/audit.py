@@ -3,11 +3,10 @@ import logging
 import os
 
 import faust
-
 import utils
 
 kafka_host = os.environ.get("KAFKA_HOST", "kafka://localhost")
-app = faust.App("audit", broker=kafka_host, datadir="/tmp/{appid}-data")
+app = faust.App("audit", broker=kafka_host, datadir="/tmp/audit-data")
 
 audit_topic = app.topic("audit", value_type=utils.AuditSchema)
 

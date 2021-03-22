@@ -3,7 +3,9 @@ import os
 
 KAFKA_HOST = os.environ.get("KAFKA_HOST", "kafka://broker:9092")
 
-SCHEMA_REGISTRY_URL = os.environ.get("SCHEMA_REGISTRY_URL", "schema-registry:8081")
+SCHEMA_REGISTRY_URL = os.environ.get(
+    "SCHEMA_REGISTRY_URL", "http://schema-registry:8081"
+)
 
 AWS_ENDPOINT_URL = os.environ.get("AWS_ENDPOINT_URL")
 

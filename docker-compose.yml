@@ -107,7 +107,6 @@ services:
   schema-registry:
     image: confluentinc/cp-schema-registry:5.5.1
     hostname: schema-registry
-    container_name: schema-registry
     depends_on:
       - zookeeper
       - broker
@@ -116,6 +115,16 @@ services:
     environment:
       SCHEMA_REGISTRY_HOST_NAME: schema-registry
       SCHEMA_REGISTRY_KAFKASTORE_CONNECTION_URL: 'zookeeper:2181'
+
+  schema-registry-ui:
+    image: landoop/schema-registry-ui
+    hostname: schema-registry
+    depends_on:
+      - schema-registry
+    ports:
+      - "8000:8000"
+    environment:
+      SCHEMAREGISTRY_URL: http://schema-registry:8081
 
   localstack:
     image: localstack/localstack:0.11.5

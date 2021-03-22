@@ -2,16 +2,20 @@ import asyncio
 import json
 import logging
 import uuid
-from codecs.avro import avro_video_serializer
 
 import faust
 import settings
 import utils
+from avro_codecs.avro import avro_video_serializer
 from models import video
 
 app = faust.App("sqs", broker=settings.KAFKA_HOST, datadir="/tmp/sqs-data")
 
-image_extraction_topic = app.topic("image-extraction", value_type=video.VideoModel)
+image_extraction_topic = app.topic(
+    "image-extraction",
+    value_type=video.VideoModel,
+    value_serializer=avro_video_serializer,
+)
 queue_url = utils.get_queue_url()
 sqs_client = utils.get_client()
 
@@ -34,7 +38,7 @@ async def listen():
 
         await asyncio.sleep(1)
 
-        value = dict(
+        value = video.VideoModel(
             video_id=body["video_id"], video_url=body["video_url"], trace_id=trace_id
         )
 
@@ -44,7 +48,6 @@ async def listen():
         await image_extraction_topic.send(
             key=str(body["video_id"]),
             value=value,
-            value_serializer=avro_video_serializer,
         )
 
         logging.info(f"Deleting SQS message {receipt_handle}")

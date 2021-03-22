@@ -1,20 +1,29 @@
 import asyncio
 import logging
-import os
 
 import faust
-import utils
+import settings
+from models import audit
 
-kafka_host = os.environ.get("KAFKA_HOST", "kafka://localhost")
-app = faust.App("audit", broker=kafka_host, datadir="/tmp/audit-data")
+app = faust.App("audit", broker=settings.KAFKA_HOST, datadir="/tmp/audit-data")
 
-audit_topic = app.topic("audit", value_type=utils.AuditSchema)
+extraction_audit_topic = app.topic("extraction-audit", value_type=audit.ExtractionAudit)
+category_tag_audit_topic = app.topic(
+    "category-audit", value_type=audit.CategoryTagAudit
+)
 
 
-@app.agent(audit_topic)
-async def image_extraction(stream):
-    async for audit in stream:
-        logging.info(f"Saving audit record {audit}")
+@app.agent(extraction_audit_topic)
+async def extraction_audit_stream(stream):
+    async for event in stream:
+        logging.info(f"Saving audit record {event}")
+        await asyncio.sleep(1)
+
+
+@app.agent(category_tag_audit_topic)
+async def category_tag_audit_stream(stream):
+    async for event in stream:
+        logging.info(f"Saving audit record {event}")
         await asyncio.sleep(1)
 
 

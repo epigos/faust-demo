@@ -1,36 +1,40 @@
 import asyncio
 import logging
-import os
+from codecs.avro import avro_category_tag_audit_serializer
 from datetime import datetime
 
 import faust
-import utils
+import settings
+from models import audit, enums, video
 
-kafka_host = os.environ.get("KAFKA_HOST", "kafka://localhost")
-app = faust.App("scale_ai", broker=kafka_host, datadir="/tmp/scale_ai-data")
+app = faust.App("autotag", broker=settings.KAFKA_HOST, datadir="/tmp/autotag-data")
 
-scale_ai_topic = app.topic("scale_ai", value_type=utils.VideoSchema)
-audit_topic = app.topic("audit", value_type=utils.AuditSchema)
-
-
-async def audit_log(audit):
-    logging.info(f"Publishing audit logs for {audit}")
-    await audit_topic.send(value=audit)
+autotag_topic = app.topic("scale_ai", value_type=video.VideoModel)
+audit_topic = app.topic("audit", value_type=audit.CategoryTagAudit)
 
 
-@app.agent(scale_ai_topic, sink=[audit_log])
-async def scale_ai(videos):
-    async for video in videos:
-        logging.info(f"Making Scale AI prediction for video {video}")
+async def audit_log(value):
+    logging.info(f"Publishing ScaleAI audit logs for {value}")
+    await audit_topic.send(
+        value=value, value_serializer=avro_category_tag_audit_serializer
+    )
+
+
+@app.agent(autotag_topic, sink=[audit_log])
+async def autotag(videos):
+    async for event in videos:
+        logging.info(f"Making ScaleAI prediction for video {event}")
         await asyncio.sleep(1)
 
-        audit = utils.AuditSchema(
-            trace_id=video.trace_id,
+        value = dict(
+            trace_id=event.trace_id,
             timestamp=datetime.now(),
-            stage="prediction",
-            log=dict(category="sports", strategy="scale_ai", confidence=90),
+            stage=enums.Stages.prediction,
+            category="commedy",
+            strategy=enums.PredictionStrategy.scaleai,
+            confidence=90,
         )
-        yield audit
+        yield value
 
 
 if __name__ == "__main__":

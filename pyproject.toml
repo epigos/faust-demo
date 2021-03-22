@@ -8,6 +8,8 @@ authors = ["Philip Adzanoukpe <epigos@gmail.com>"]
 python = "^3.8"
 faust = {extras = ["fast", "debug"], version = "^1.10.4"}
 boto3 = "^1.17.28"
+python-schema-registry-client = "^1.8.1"
+dataclasses-avroschema = "^0.20.2"
 
 [tool.poetry.dev-dependencies]
 

@@ -1,52 +1,70 @@
 import asyncio
 import logging
-import os
+from codecs.avro import avro_extraction_audit_serializer, avro_video_serializer
 from datetime import datetime
 
 import faust
+import settings
 import utils
+from models import audit, enums, video
 
-kafka_host = os.environ.get("KAFKA_HOST", "kafka://localhost")
-app = faust.App("image-extraction", broker=kafka_host, datadir="/tmp/image-data")
+app = faust.App(
+    "image-extraction", broker=settings.KAFKA_HOST, datadir="/tmp/image-data"
+)
 
-image_extraction_topic = app.topic("image-extraction", value_type=utils.VideoSchema)
-prediction_topic = app.topic("prediction", value_type=utils.VideoSchema)
-audit_topic = app.topic("audit", value_type=utils.AuditSchema)
+image_extraction_topic = app.topic("image-extraction", value_type=video.VideoModel)
+autotag_topic = app.topic("autotag", value_type=video.VideoModel)
+scale_ai_topic = app.topic("scale_ai", value_type=video.VideoModel)
+audit_topic = app.topic("extraction-audit", value_type=audit.ExtractionAudit)
 
 
-async def audit_log(video: utils.VideoSchema):
-    audit = utils.AuditSchema(
-        trace_id=video.trace_id,
+async def audit_log(value: video.VideoModel):
+    value = dict(
+        trace_id=value.trace_id,
         timestamp=datetime.now(),
-        stage="extraction",
-        log=dict(num_frames=16, strategy="basic"),
+        stage=enums.Stages.extraction,
+        num_frames=16,
+        strategy=enums.ExtractionStrategy.memory,
     )
-    logging.info(f"Publishing audit logs for {audit}")
-    await audit_topic.send(value=audit)
+    logging.info(f"Publishing Image Extraction audit logs for {value}")
+    await audit_topic.send(
+        value=value, value_serializer=avro_extraction_audit_serializer
+    )
 
 
-@app.agent(image_extraction_topic, sink=[audit_log])
+async def prediction_stage(value: video.VideoModel):
+    await autotag_topic.send(
+        key=str(value.video_id), value=value, value_serializer=avro_video_serializer
+    )
+    await scale_ai_topic.send(
+        key=str(value.video_id), value=value, value_serializer=avro_video_serializer
+    )
+
+
+@app.agent(image_extraction_topic, sink=[prediction_stage, audit_log])
 async def image_extraction(videos):
-    async for video in videos:
+    async for event in videos:
         try:
-            logging.info(f"Extracting video frames from {video}")
+            logging.info(f"Extracting video frames from {event}")
             await asyncio.sleep(1)
 
-            s3_key = f"s3://scd-tfrecords/{video.video_id}.tfrecord"
+            s3_key = f"s3://scd-tfrecords/{event.video_id}.tfrecord"
             logging.info(f"Uploading video frames to s3: {s3_key}")
             await asyncio.sleep(1)
 
-            video.frames_s3_key = s3_key
-            logging.info(f"Sending video to ML prediction stage: {video}")
-            await prediction_topic.send(key=str(video.video_id), value=video)
-
+            event.frames_s3_key = s3_key
         except Exception:
-            if video.retry_counter < utils.RETRY_MAX:
-                video.retry_counter += 1
-                logging.info(f"Retrying video: {video}")
-                await image_extraction_topic.send(key=str(video.video_id), value=video)
+            if event.retry_counter < utils.RETRY_MAX:
+                event.retry_counter += 1
+                logging.info(f"Requeue video: {event}")
+                await image_extraction_topic.send(
+                    key=str(event.video_id),
+                    value=event,
+                    value_serializer=avro_video_serializer,
+                )
         finally:
-            yield video
+            logging.info(f"Sending video to ML prediction stage: {event}")
+            yield event
 
 
 if __name__ == "__main__":

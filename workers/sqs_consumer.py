@@ -1,66 +1,55 @@
+import asyncio
 import json
-import os
-import time
+import logging
 import uuid
+from codecs.avro import avro_video_serializer
 
-from kafka import KafkaProducer
-from utils import get_client, get_queue_url
+import faust
+import settings
+import utils
+from models import video
 
-TOPIC = "image-extraction"
+app = faust.App("sqs", broker=settings.KAFKA_HOST, datadir="/tmp/sqs-data")
 
-
-def publish_message(producer_instance, topic_name, key, value):
-    try:
-        key_bytes = bytes(str(key), encoding="utf-8")
-        value_bytes = bytes(value, encoding="utf-8")
-        producer_instance.send(topic_name, key=key_bytes, value=value_bytes)
-        producer_instance.flush()
-        print(f"Message published successfully to kafka topic {TOPIC}")
-    except Exception as ex:
-        print("Exception in publishing message")
-        print(ex)
+image_extraction_topic = app.topic("image-extraction", value_type=video.VideoModel)
+queue_url = utils.get_queue_url()
+sqs_client = utils.get_client()
 
 
-def connect_kafka_producer():
-    _producer = None
-    try:
-        # host.docker.internal is how a docker container connects to the local
-        # machine.
-        # Don't use in production, this only works with Docker for Mac in
-        # development
-        _producer = KafkaProducer(
-            bootstrap_servers=[os.environ.get("KAFKA_HOST", "localhost:9092")],
-            api_version=(0, 10),
-        )
-    except Exception as ex:
-        print("Exception while connecting Kafka")
-        print(ex)
-    return _producer
-
-
-def listen():
-    print(f"Consuming messages from {queue_url}")
-
+@app.timer(10, on_leader=True)
+async def listen():
     response = sqs_client.receive_message(
         QueueUrl=queue_url,
     )
-    for msg in response.get("Messages", []):
+    messages = response.get("Messages", [])
+    if messages:
+        logging.info(f"Received messages {len(messages)} from {queue_url}")
+
+    for msg in messages:
         body = json.loads(msg["Body"])
         receipt_handle = msg["ReceiptHandle"]
 
-        print(f"Obtaining audit trace id for {msg}")
+        logging.info(f"Obtaining audit trace id for {msg}")
+        trace_id = str(uuid.uuid4())
 
-        time.sleep(1)
-        body["trace_id"] = str(uuid.uuid4())
+        await asyncio.sleep(1)
 
-        publish_message(kafka_producer, TOPIC, body["video_id"], json.dumps(body))
+        value = dict(
+            video_id=body["video_id"], video_url=body["video_url"], trace_id=trace_id
+        )
+
+        logging.info(
+            f"Message published successfully to kafka topic {image_extraction_topic}"
+        )
+        await image_extraction_topic.send(
+            key=str(body["video_id"]),
+            value=value,
+            value_serializer=avro_video_serializer,
+        )
+
+        logging.info(f"Deleting SQS message {receipt_handle}")
         sqs_client.delete_message(QueueUrl=queue_url, ReceiptHandle=receipt_handle)
 
 
 if __name__ == "__main__":
-    queue_url = get_queue_url()
-    sqs_client = get_client()
-    kafka_producer = connect_kafka_producer()
-    while True:
-        listen()
-        time.sleep(10)
+    app.main()

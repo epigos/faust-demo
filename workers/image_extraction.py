@@ -15,6 +15,8 @@ app = faust.App(
 image_extraction_topic = app.topic(
     "image-extraction",
     value_type=video.VideoModel,
+    key_type=str,
+    key_serializer="",
     value_serializer=avro_video_serializer,
 )
 autotag_topic = app.topic(

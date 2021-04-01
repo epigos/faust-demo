@@ -12,4 +12,4 @@ class VideoModel(faust.Record, AvroModel, serializer="avro_video"):
     retry_counter: int = 0
 
     class Meta:
-        namespace = "triller.avro"
+        namespace = "com.avro"

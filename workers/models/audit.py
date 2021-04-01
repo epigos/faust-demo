@@ -15,7 +15,7 @@ class Audit(faust.Record, AvroModel):
     )
 
     class Meta:
-        namespace = "triller.avro"
+        namespace = "com.avro"
 
 
 @dataclass
